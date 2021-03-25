@@ -52,7 +52,7 @@ app.use((req, res, next) => {
 });
 
 mongoose
-  .connect('mongodb+srv://arsalan:G1Qp5vAl02qth6zw@cluster0.8lad6.mongodb.net/myFirstDatabase?retryWrites=true&w=majority')
+  .connect('mongodb+srv://<password>@cluster0.8lad6.mongodb.net/myFirstDatabase?retryWrites=true&w=majority')
   .then(() => {
     console.log('Database connected');
     console.log('Listening on localhost:5000')
