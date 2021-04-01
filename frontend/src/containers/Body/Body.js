@@ -1,6 +1,6 @@
 import React, {useEffect} from 'react';
 import { useHistory } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 // import Header from '../Header/Header';
 import {
     Container,
@@ -14,7 +14,7 @@ import './Body.css';
 const Body = () => {
     let history = useHistory();
     const dispatch = useDispatch()
-    // const userData = useSelector(state => state)
+    const loggedIn = useSelector(state => state.loggedIn);
 
     useEffect(() => {
         console.log('Body useEffect')
@@ -141,7 +141,7 @@ const Body = () => {
                                 <Card.Text>
                                     Login a user
                                 </Card.Text>
-                                <Button onClick={() => {
+                                <Button disabled={loggedIn} onClick={() => {
                                     dispatch({ type: 'set', current_action: 'login' })
                                     history.push("api/users")
                                 }} variant="success">Login</Button>

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import Header from '../../containers/Header/Header';
-import Spinner from '../UIElements/LoadingSpinner';
-import Modal from '../UIElements/ErrorModal';
+import { useSelector } from 'react-redux'
+// import Header from '../../containers/Header/Header';
+// import Spinner from '../UIElements/LoadingSpinner';
+// import Modal from '../UIElements/ErrorModal';
 import {
-    Container,
-    Card,
     Table,
     thead,
     tbody,
@@ -18,11 +17,17 @@ const UsersList = () => {
     const [error, set_error] = useState();
     const [usersList, set_usersList] = useState([]);
 
+    const authToken = useSelector(state => state.authToken);
+
     useEffect(() => {
         const getUsers = async () => {
             set_loading(true)
             try {
-                const res = await fetch('http://localhost:5000/api/users/');
+                const res = await fetch('http://localhost:5000/api/users/', {
+                    headers:{
+                        Authorization : 'Bearer '+authToken
+                    }
+                });
                 const data = await res.json();
                 if (!res.ok) {
                     throw new Error(data.message)
@@ -46,9 +51,9 @@ const UsersList = () => {
         getUsers();
     }, [])
 
-    const errorHandler = () => {
-        set_error(null);
-    };
+    // const errorHandler = () => {
+    //     set_error(null);
+    // };
 
     return (
         <Table striped bordered hover>

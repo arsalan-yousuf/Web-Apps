@@ -3,44 +3,76 @@ const { check } = require("express-validator");
 const { validationResult } = require("express-validator");
 const mongoose = require('mongoose');
 const multer = require('multer');
-
+const { v1: uuidv1 } = require("uuid");
 const router = express.Router();
 const HttpError = require("../models/http-error");
 const Place = require("../models/place");
 const User = require("../models/user");
+const authenticate = require('../middlewares/authenticate');
+const fs = require('fs');
 
-const Multer = multer({});
+const MIME_TYPE_MAP = {
+  'image/png': 'png',
+  'image/jpeg': 'jpeg',
+  'image/jpg': 'jpg'
+};
 
-// let dummy_places = [
-//   {
-//     id: "1",
-//     title: "Place One",
-//   },
-//   {
-//     id: "2",
-//     title: "Place Two",
-//   },
-// ];
+const upload = multer({
+  limits: 500000,
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, '../uploads/images/');
+    },
+    filename: (req, file, cb) => {
+      const ext = MIME_TYPE_MAP[file.mimetype];
+      cb(null, uuidv1() + '.' + ext);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    const isValid = !!MIME_TYPE_MAP[file.mimetype];
+    let error = isValid ? null : new Error('Invalid mime type!');
+    cb(error, isValid);
+  }
+});
+
+router.get("/:id", async (req, res, next) => {
+  const placeId = req.params.id;
+  let place;
+  try {
+    place = await Place.findById(placeId);
+  } catch (error) {
+    return next(new HttpError("Something went wrong while getting place", 500));
+  }
+  if (!place) {
+    return next(new HttpError("Place does not exist", 404));
+  }
+  res.json({ place: place.toObject({ getters: true }) });
+});
+
+// now downwards, only authentic requests will be entertained (with token)
+router.use(authenticate);
 
 // adding a place
-router.post(
+router.post(                      //image is not getting uploaded in uploads/images, and also no any error thrown
   "/",
-  Multer.single('image'), 
+  upload.single('image'),
   [
     check("title").isLength({ min: 5 }),
     check("description").not().isEmpty(),
-    check("image").isURL(),
+    check("image").not().isEmpty(),
     check("creator").not().isEmpty(),
   ],
   async (req, res, next) => {
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
+      console.log('isEmpty');
       return next(new HttpError("Any input is invalid", 422));
     } else {
       const { title, description, image, creator } = req.body;
       // dummy_places.push({ id, title });
-
+      console.log('Hello')
+      res.json(req.body);
       let user;
       try {
         user = await User.findById(creator)
@@ -51,6 +83,7 @@ router.post(
         const createPlace = new Place({
           title,
           description,
+          // image: req.file.path,              // multer is not adding image to uploads/images
           image,
           creator
         });
@@ -87,43 +120,8 @@ router.get("/users/:id", async (req, res, next) => {
   }
   res.json({ places: user.places.map((p) => p.toObject({ getters: true })) });
 
-
-
-  // another method of getting only those places match with userId
-
-  // let place;
-  // try {
-  //   place = await Place.find({ creator: userId });
-  // } catch (error) {
-  //   return next(new HttpError("Unable to find place by user", 500));
-  // }
-  // if (!place || place.length === 0) {
-  //   return next(new HttpError("Place by user doesn't exist", 404));
-  // }
-  // res.json({ place: place.map((p) => p.toObject({ getters: true })) });
 });
 
-//getting a place by its id
-router.get("/:id", async (req, res, next) => {
-  const placeId = req.params.id;
-  // const place = dummy_places.find((p) => {
-  //   return p.id === placeId;
-  // });
-  let place;
-  try {
-    place = await Place.findById(placeId);
-  } catch (error) {
-    return next(new HttpError("Something went wrong while getting place", 500));
-  }
-  if (!place) {
-    // res.status(404).json({message: 'Place does not exist'})
-    // const error = new Error('Place does not exist!')
-    // error.code = 404
-    // throw error
-    return next(new HttpError("Place does not exist", 404));
-  }
-  res.json({ place: place.toObject({ getters: true }) });
-});
 
 //updating a place by its id
 router.patch(
@@ -146,17 +144,12 @@ router.patch(
       if (!place) {
         return next(new HttpError("Place does not exist", 404));
       }
-      // let placeIndex;
-      // const updatedPlace = dummy_places.find((item, index) => {
-      //   if (item.id === placeId) {
-      //     placeIndex = index;
-      //     return item;
-      //   }
-      // });
-      // const placeIndex = dummy_places.findIndex(p => p.id === placeId);
+      if(place.creator.toString() !== req.userData.userId){
+        return next(new HttpError('You are not allowed to update this place',403))
+      }
+
       place.title = title;
       place.description = description;
-      // console.log(dummy_places);
 
       try {
         await place.save();
@@ -173,7 +166,6 @@ router.patch(
 
 //deleting a place by its id
 router.delete("/:id", async (req, res, next) => {
-  // dummy_places = dummy_places.filter((p) => p.id != req.params.id);
   const placeId = req.params.id;
   let place;
   try {
@@ -181,6 +173,11 @@ router.delete("/:id", async (req, res, next) => {
   } catch (error) {
     return next(new HttpError('Unable to get place by id, try again', 500))
   }
+  if(place.creator.id !== req.userData.userId){
+    return next(new HttpError('You are not allowed to delete this place',403))
+  }
+  const imgPath = place.image;
+
   if (!place) {
     return next(new HttpError("Place doesn't exist", 401))
   }
@@ -194,6 +191,10 @@ router.delete("/:id", async (req, res, next) => {
   } catch (error) {
     return next(new HttpError('Place not deleted, try again', 500))
   }
+
+  fs.unlink(imgPath, err=> {
+    console.log(err)
+  })
   res.status(200).json({ message: `place with id ${req.params.id} deleted` });
 });
 

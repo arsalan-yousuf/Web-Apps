@@ -1,7 +1,15 @@
 import { createStore } from 'redux'
+import { composeWithDevTools } from 'redux-devtools-extension';
+
 
 const initialState = {
-  current_action: ''
+  current_action: '',
+  loggedIn: false,
+  authToken: null,
+  name: null,
+  email: null,
+  userId: null,
+  expiryTime: null
 }
 
 const changeState = (state = initialState, { type, ...rest }) => {
@@ -13,5 +21,5 @@ const changeState = (state = initialState, { type, ...rest }) => {
   }
 }
 
-const store = createStore(changeState)
+const store = createStore(changeState, composeWithDevTools())
 export default store

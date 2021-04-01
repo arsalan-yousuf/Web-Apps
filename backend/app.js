@@ -1,7 +1,8 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const uuid = require("uuid"); // this package is used to generate unique ids
 const mongoose = require("mongoose");
+const fs = require('fs');
+const imgPath = require('path');
 
 const placeRouter = require("./routes/places_routes");
 const userRouter = require("./routes/users_routes");
@@ -16,7 +17,6 @@ app.use(
 );
 app.use(express.json());
 app.use(express.raw());
-
 
 //for CORS error handling
 app.use((req, res, next) => {
@@ -38,8 +38,15 @@ app.use((req, res, next) => {
   throw error;
 });
 
+app.use('/uploads/images', express.static(imgPath.join('uploads', 'images')))
+
 app.use((error, req, res, next) => {
   // this is only triggered in case of any error
+  if (req.file) {
+    fs.unlink(req.file.path, (err) => {
+      console.log(err)
+    });
+  }
   if (res.headerSent) {
     return next(error);
   }
@@ -51,8 +58,9 @@ app.use((req, res, next) => {
   res.send("<h1>Index</h1>");
 });
 
+
 mongoose
-  .connect('mongodb+srv://<password>@cluster0.8lad6.mongodb.net/myFirstDatabase?retryWrites=true&w=majority')
+  .connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.8lad6.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`)
   .then(() => {
     console.log('Database connected');
     console.log('Listening on localhost:5000')
